@@ -1,0 +1,72 @@
+---
+title: "Data Exploration Project"
+author: "Brian Thomas"
+date: "5/15/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+##Loading Library
+library(tidyverse)
+library(purrr)
+library(lubridate)
+library(fixest)
+library(multcomp)
+library(vtable)
+library(dplyr)
+```
+## Intro
+
+The College Scorecard is a public-facing website that contains important information about colleges, including how much its graduates earn. This information has traditionally been very difficult to find. The College Scorecard that was released at the start of September 2015 shows data from colleges that predominantly grant Bachelors degrees. In this exploration project I will be looking at whether or not the release of the College Scorecard has been effective in shifting student interest in high-earning colleges relative to low-earning colleges. 
+
+```{r} 
+# Filter the file data for the bachelor degrees and omit all the NA values if any. 
+final_data <- read_csv('~finaldata.csv', show_col_types = FALSE)
+final_data <- final_data %>% 
+  drop_na()
+final_data <- final_data[ , colSums(is.na(final_data)) < nrow(final_data)]
+clean_df <- final_data %>% 
+  filter(preddeg == 3, na.rm=TRUE)
+```
+
+# Analysis 
+
+Since our College Scorecard data looks at the colleges predominantly from the end of the 2015 year, I've decided to do some searching and according to the U.S bureau of labor statistics, at the start of the year 2016, the median income of workers with a Bachelors degree in the U.S. was $1,155. Which in turn gives us a Median Annual Salary of $60,060. This will become the split value between the high income and low income college groups.
+
+Use ifelse() function to set the split, where '1' is high income and '0' is low income by the $60,060 median annual salary. 
+```{r} 
+clean_df$medianEarning <- ifelse(clean_df$`md_earn_wne_p10-reported-earnings` >= 60060, '1', '0')
+```
+
+Limit the size of the data set and get rid of the columns that we will not use 
+```{r}
+clean_df <- clean_df %>% 
+  dplyr::select(unitid, instnm, monthorweek, preddeg, sat_avg, `md_earn_wne_p10-reported-earnings`, medianEarning, index, index_id) %>%
+  mutate(date= as.Date(str_sub(monthorweek, 1,10))) %>%
+  group_by(month = floor_date(date, "month"), medianEarning) %>%
+  summarize(index_id = mean(index_id))
+```
+
+Since the US college scorecard was launched on September 12, 2015. By using feols() and mutate() We will use this date to test whether there was an effect on the Google Trends data of median income, after the college scorecard was administered. The regression below is going to test whether there is an impact on Google Trends index on median income.
+```{r} 
+final_data <- final_data %>%
+  mutate(earning = `md_earn_wne_p10-reported-earnings` >= 60060, post_scorecard = monthorweek >= 
+           as.Date("2015-09-12"))
+results <- feols(index_id ~ earning*post_scorecard, data=final_data) 
+export_summs(results, digits = 2)
+```
+
+From the regression above, the results show that there is an 0.3 percent decrease in high income colleges after the release of the Scorecard. 
+
+We can use a visualization to show the impacts of Google Trends index between the high income and the low income colleges where 1 is high income and 0 is low income colleges
+```{r, echo=FALSE}
+ggplot(clean_df, aes(x=month, y=index_id, color=medianEarning)) + 
+  geom_line(aes(color= medianEarning), size=1) +
+  geom_vline(xintercept = as.Date("2015-09-12")) + theme_bw() + guides(color=guide_legend("Median Earning"))+
+  labs(title= "Scorecard Impact on Google Trends Index in Colleges")
+```
+
+### Interpretation for Visualization: 
+From the graph we see that the difference in the 2015 september Scorecard impact depicted by the line show almost no difference only at the start of the year 2016. We see that both colleges decrease at the same ratio throughout the years and the scorecard effect did not change it by much. In the date that the college scorecard was launched, which is 12 September 2015, we don't see any effect in both high income and low income colleges. Further correlations could be speculated but from median earnings, the scorecard, and the Google trends, there is insignificant impact on the google trends data. 
