@@ -55,7 +55,7 @@ final_data <- final_data %>%
   mutate(earning = `md_earn_wne_p10-reported-earnings` >= 60060, post_scorecard = monthorweek >= 
            as.Date("2015-09-12"))
 results <- feols(index_id ~ earning*post_scorecard, data=final_data) 
-export_summs(results, digits = 2)
+etable(results, digits = 3)
 ```
 
 From the regression above, the results show that there is an 0.3 percent decrease in high income colleges after the release of the Scorecard. 
