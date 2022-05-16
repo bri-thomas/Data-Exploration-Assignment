@@ -33,8 +33,8 @@ idname <- read_csv('Lab3_Rawdata/id_name_link.csv')
 #Merging Scorecard Data
 idname <- idname %>%
   group_by(schname) %>%
-  mutate(n = n())
-filter(idname, n == 1)
+  mutate(n = n()) %>%
+  filter(n == 1)
 join1 <- inner_join(trends, idname, by = 'schname')
 names(scorecard) <- tolower(names(scorecard))
 head(scorecard, 5)
